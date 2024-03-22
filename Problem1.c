@@ -41,6 +41,7 @@ int main(int argc, char *argv[]) {
     sieve();
     if (my_rank == 0) {
         int a, b;
+        printf("Enter X, Y (separated by space): ");
         scanf("%d %d", &a, &b);
         int x = a;
         int r = (b - a) / (p - 1);
@@ -49,7 +50,7 @@ int main(int argc, char *argv[]) {
             // printf("Sending task to processor %d\n", i);
             int pair[2];
             pair[0] = x;
-            if (i == p - 1) pair[1] = x + r;
+            if (i != p - 1) pair[1] = x + r;
             else pair[1] = x + r + (r % (p - 1));
 
             MPI_Send(pair, 2, MPI_INT, i, 0, MPI_COMM_WORLD);
