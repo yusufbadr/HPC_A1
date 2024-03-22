@@ -68,7 +68,7 @@ void read_textfile(const char *filename, char *text){
 int main(){
 
     char text[MAX_STRING_SIZE];
-    int chunk_size;
+    int chunk_size, last_chunk_size;
     char encr_mode;
 
     MPI_Init(NULL, NULL);
@@ -86,7 +86,6 @@ int main(){
         if (encr_mode != 'e' && encr_mode != 'd') {
             printf("Invalid option\n");
             exit(1);
-
         }
 
         if (read_mode == 'f'){
@@ -103,8 +102,12 @@ int main(){
         }
 
         chunk_size = strlen(text)/(comm_size-1);
+        last_chunk_size = chunk_size + strlen(text) % (comm_size-1);
         for (int i = 1; i < comm_size; i++){
-            MPI_Send(&chunk_size, 1, MPI_INT, i, 3, MPI_COMM_WORLD);
+            if (i == comm_size - 1)
+                MPI_Send(&last_chunk_size, 1, MPI_INT, i, 3, MPI_COMM_WORLD);
+            else
+                MPI_Send(&chunk_size, 1, MPI_INT, i, 3, MPI_COMM_WORLD);
             MPI_Send(&encr_mode, 1, MPI_CHAR, i, 6, MPI_COMM_WORLD);
         }
     } else {
@@ -115,7 +118,10 @@ int main(){
 
     if (my_rank == 0){
         for (int i = 1; i < comm_size; i++){
-            MPI_Send(text + (i-1)*chunk_size, chunk_size, MPI_CHAR, i, 0, MPI_COMM_WORLD);
+            if (i == comm_size - 1)
+                MPI_Send(text + (i-1)*chunk_size, last_chunk_size, MPI_CHAR, i, 0, MPI_COMM_WORLD);
+            else
+                MPI_Send(text + (i-1)*chunk_size, chunk_size, MPI_CHAR, i, 0, MPI_COMM_WORLD);
         }
     } else {
         MPI_Recv(text, chunk_size, MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -123,7 +129,7 @@ int main(){
     }
 
 
-    if (my_rank!=0){
+    if (my_rank != 0){
         if (encr_mode == 'e'){
             caeser_encrypt(text);
         } else {
@@ -131,15 +137,18 @@ int main(){
         } 
         
         MPI_Send(text, chunk_size, MPI_CHAR, 0, 1, MPI_COMM_WORLD);
-    } else {
+    } else { 
         for(int i = 1; i < comm_size; i++){
-            MPI_Recv(&text[(i-1)*chunk_size], chunk_size, MPI_CHAR, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            if (i == comm_size - 1)
+                MPI_Recv(&text[(i-1)*chunk_size], last_chunk_size, MPI_CHAR, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            else
+                MPI_Recv(&text[(i-1)*chunk_size], chunk_size, MPI_CHAR, i, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
 
         if (encr_mode == 'e'){
-            printf("Encrypted string:\n%s", text);
+            printf("Encrypted string:\n%s\n", text);
         } else {
-            printf("Decrypted string:\n%s", text);
+            printf("Decrypted string:\n%s\n", text);
         }
     }
 
